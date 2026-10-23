@@ -1,0 +1,575 @@
+=== PAGE 1 ===
+CVPR
+#*****
+CVPR
+#*****
+CVPR 2027 Submission #*****. CONFIDENTIAL REVIEW COPY . DO NOT DISTRIBUTE.
+LATEX Author Guidelines for CVPR Proceedings
+Anonymous CVPR submission
+Paper ID *****
+Abstract
+The ABSTRACT is to be in fully justified italicized text, at001
+the top of the left-hand column, below the author and affil-002
+iation information. Use the word “Abstract” as the title, in003
+12-point Times, boldface type, centered relative to the col-004
+umn, initially capitalized. The abstract is to be in 10-point,005
+single-spaced type. Leave two blank lines after the Abstract,006
+then begin the main text. Look at previous CVPRabstracts007
+to get a feel for style and length.008
+1. Introduction009
+Medical images vary across institutions because of dif-010
+ferences in acquisition devices, imaging protocols, patient011
+populations, and sample preparation [1]. These variations012
+create a persistent challenge for visual recognition: a model013
+that performs well in its training environment may fail at an014
+unseen medical center. Zech et al. document variable cross-015
+hospital performance and hospital-associated confounding016
+in pneumonia detection from chest radiographs [13]. The017
+challenge extends beyond achieving high average accuracy.018
+Reliable recognition requires representations that preserve019
+diagnostically relevant visual structure while remaining ro-020
+bust to changes in how images are acquired. Multi-center021
+datasets such as PolypGen provide an opportunity to inves-022
+tigate this problem under explicit institutional distribution023
+shifts [1].024
+Pretrained visual encoders offer reusable representations025
+for downstream recognition, including frozen-feature eval-026
+uation [9]. Their benefit in medical imaging is task-027
+dependent: Raghu et al. found limited performance gains028
+from ImageNet transfer in the two medical tasks they stud-029
+ied [10]. However, pretraining alone does not ensure that030
+downstream decision rules generalize across centers. A031
+classifier learned from pooled source data may exploit ac-032
+quisition characteristics that correlate with class labels in033
+the training set [13]. Theoretical results in domain adap-034
+tation also show that distribution alignment alone need not035
+ensure low target error [14]. Whether alignment suppresses036
+useful variation in our medical setting remains an empirical037
+question. This raises a central question: how can a recogni-038
+tion model retain class-discriminative structure without re-039
+lying on center-specific visual cues?040
+Prototype-based learning provides a natural framework041
+for studying this question. By representing classes through042
+reference vectors in an embedding space, prototype meth-043
+ods make the relationship between representation geometry044
+and prediction explicit [11]. Strong cosine-classifier base-045
+lines further motivate controlled evaluation of whether a046
+proposed prototype mechanism contributes beyond its un-047
+derlying representation [3]. Prior work represents cate-048
+gories through multiple prototypical image parts, as in Pro-049
+toPNet [2]. Here, we study global embedding prototypes050
+and hypothesize that a single prototype may compress dis-051
+tinct class appearances. The pooled mean also gives greater052
+influence to centers contributing more samples, as formal-053
+ized in Eq. 2. Introducing multiple prototypes increases rep-054
+resentational flexibility, but does not automatically distin-055
+guish meaningful within-class variation from acquisition-056
+specific structure. Consequently, neither pooled class cen-057
+troids nor unconstrained collections of prototypes necessar-058
+ily provide a decision rule that transfers to an unseen center.059
+We investigatedomain-robust prototype learning for060
+medical image recognition. Our guiding hypothesis is that061
+prototypes should capture variation that supports class dis-062
+crimination while limiting dependence on the composition063
+of the source centers. We study this hypothesis using064
+pretrained image representations and controlled compar-065
+isons between pooled centroids, learned cosine classifiers,066
+and multiple-prototype formulations. Center information067
+is available during training to characterize source-domain068
+variation, while inference must operate without access to069
+the identity or labeled examples of the target center. This070
+setting isolates generalization to unseen institutions from071
+adaptation using target-domain data.072
+A rigorous evaluation protocol is essential to assess073
+whether improvements reflect transferable visual struc-074
+ture. DomainBed emphasizes matched experimental condi-075
+tions and source-only selection [6]; nested evaluation sep-076
+arates hyperparameter selection from performance estima-077
+tion [12]. We therefore formulate the study around held-078
+1
+
+=== PAGE 2 ===
+CVPR
+#*****
+CVPR
+#*****
+CVPR 2027 Submission #*****. CONFIDENTIAL REVIEW COPY . DO NOT DISTRIBUTE.
+out-center evaluation, with model selection restricted to079
+source-domain validation data and related patient or video080
+samples kept within the same partition. Comparisons use081
+matched encoders and training conditions to separate the082
+effect of prototype construction from the effect of backbone083
+capacity or pretraining. Beyond aggregate performance,084
+per-center results and controlled ablations examine when085
+prototype learning improves generalization and when it re-086
+moves useful class variation.087
+Scope and objectives.This paper focuses on supervised088
+medical image classification under cross-center domain089
+shift, using pretrained visual encoders and prototype-based090
+decision rules. Models are trained on labeled source-center091
+data and evaluated at centers excluded from training and092
+model selection; neither target-center data nor target-center093
+identity is used to adapt the model. PolypGen provides094
+the initial experimental setting for polyp-presence classifi-095
+cation. Within this scope, the study has three main objec-096
+tives:097
+1.Develop a domain-robust prototype mechanism.In-098
+vestigate how center-balanced prototype estimation and099
+multiple within-class prototypes can preserve class-100
+discriminative variation while reducing sensitivity to101
+source-center composition.102
+2.Evaluate generalization to unseen centers.Compare103
+the proposed mechanism with matched linear, cosine,104
+nearest-centroid, and multiple-prototype baselines un-105
+der held-out-center evaluation, reporting aggregate and106
+worst-center performance with uncertainty estimates.107
+3.Explain the conditions governing prototype transfer .108
+Use controlled ablations and failure analysis to deter-109
+mine how prototype multiplicity, center balancing, and110
+encoder adaptation affect generalization, including cases111
+where balancing or prototype compression suppresses112
+useful class variation.113
+Together, these objectives connect prototype geometry to114
+independently evaluated cross-center recognition and guide115
+the design of lightweight medical image classifiers that re-116
+main effective beyond their training environments.117
+2. Background and Related Work118
+2.1. Cross-Center Domain Generalization119
+Following the domain-generalization setting of Do-120
+mainBed [6], we model each imaging center as a domain121
+with a joint distributionPs(X, Y)over imagesXand labels122
+Y. Given labeled datasets fromSsource centers, the objec-123
+tive is to learn a predictor that transfers to an unseen target124
+distributionP t(X, Y)sharing the same label space. Cross-125
+hospital evaluation demonstrates differences in image ap-126
+pearance and class prevalence [13], while class-conditional127
+shift matters in analyses of transfer [14]. We therefore treat128
+center identity as a grouping variable rather than a complete129
+description of acquisition style. In this paper, target-center130
+images are unavailable during training and model selection.131
+This is a domain-generalization setting [6], whereas unsu-132
+pervised domain adaptation permits access to unlabeled tar-133
+get images, as in the medical segmentation setting of En and134
+Guo [5].135
+Empirical risk minimization (ERM) on pooled source136
+data is an essential baseline. Gulrajani and Lopez-Paz [6]137
+demonstrate that careful implementation and model selec-138
+tion can make ERM competitive with dedicated domain-139
+generalization algorithms on the benchmarks they examine.140
+Their findings motivate matched architectures, tuning bud-141
+gets, and source-only validation rather than assuming that142
+an additional alignment objective is beneficial. Separately,143
+Zhao et al. [14] show, in domain adaptation, that distribution144
+invariance and low source error do not suffice for successful145
+transfer under certain shifts. These results caution against146
+indiscriminate alignment; they do not prove that alignment147
+necessarily harms the medical tasks considered here.148
+2.2. Pretrained Representations and Prototype Ge-149
+ometry150
+Letf θ(x)be an image encoder and letz(x) =151
+fθ(x)/∥fθ(x)∥2 denote its normalized embedding, assum-152
+ing a nonzero encoder output. Large-scale self-supervised153
+encoders such as DINOv2 produce features transferable154
+across multiple visual tasks [9]. We use such representa-155
+tions as a starting point rather than treating encoder pre-156
+training as our contribution. A frozen-encoder experiment157
+isolates the downstream decision rule, while a separately158
+controlled adaptation experiment assesses whether chang-159
+ing the representation provides additional benefit.160
+Prototypical Networks classify examples by distances to161
+class means in a learned metric space [11]. For normalized162
+class prototypesp c and temperatureτ >0, a cosine-based163
+classifier instead uses164
+q(y=c|x) = exp(z(x)⊤pc/τ)∑︁C
+j=1 exp(z(x)⊤pj/τ)
+.(1)165
+With one trainable vector per class, this is a normalized166
+linear classifier, consistent with the cosine formulation of167
+Chen et al. [3]. Supervised contrastive learning explic-168
+itly constructs labeled positive and negative relationships169
+among embeddings [8]. Cross-entropy training of cosine170
+scores alone does not establish a new contrastive-learning171
+method. The cosine baseline of Chen et al. [3] reinforces172
+the importance of testing prototype updates against a strong173
+classifier using the same encoder.174
+ProtoPNet represents categories through prototypical175
+image parts and exposes supporting regions [2]. Its spatial,176
+example-based explanation differs from our global embed-177
+ding vectors. Spherical clustering provides an established178
+2
+
+=== PAGE 3 ===
+CVPR
+#*****
+CVPR
+#*****
+CVPR 2027 Submission #*****. CONFIDENTIAL REVIEW COPY . DO NOT DISTRIBUTE.
+mechanism for representing several directions in normal-179
+ized feature space [4]. Whether these directions capture180
+transferable class structure or acquisition artifacts is a hy-181
+pothesis to test. A geometric reference vector alone is not a182
+clinically validated explanation; interpretability requires ev-183
+idence linking matches to meaningful image content. Tem-184
+perature scaling is likewise an established calibration tech-185
+nique [7], not a guarantee of calibration after domain shift.186
+2.3. Prototype Weighting and Medical Transfer187
+For classc, letn s,c andµ s,c denote the sample count and188
+mean embedding at source centers. Before normalization,189
+the pooled class centroid is190
+µpool
+c =
+∑︁S
+s=1 ns,cµs,c
+∑︁S
+s=1 ns,c
+,(2)191
+where centers with no examples of classccontribute zero.192
+Thus, centers with larger class-specific sample counts re-193
+ceive greater weight. Averaging the available center means194
+equally changes the weighting, but is not necessarily prefer-195
+able: estimates from small centers may be noisy, and equal196
+weighting may differ from the deployment distribution. The197
+effects of center balancing and prototype multiplicity are198
+consequently empirical questions, not assumed improve-199
+ments. Equation 2 is an algebraic decomposition of the200
+pooled mean, rather than a new estimator; our clustering201
+also builds on established sphericalk-means [4].202
+Prototype-based medical transfer has existing prece-203
+dents. En and Guo [5] introduce dynamic cross-domain pro-204
+totypes and contrastive learning for medical image segmen-205
+tation using labeled source and unlabeled target data. Their206
+method addresses adaptation with target access, while our207
+proposed study concerns classification without target ac-208
+cess. This distinction defines a different evaluation setting;209
+it does not establish novelty for prototype alignment itself.210
+PolypGen supplies real multi-center endoscopy data and an211
+existing out-of-sample assessment protocol [1]. Because it212
+includes video frames, partitions must respect available pa-213
+tient or sequence identifiers to reduce dependence between214
+training and evaluation samples.215
+Research question and limits.The question pursued216
+here is whether center-aware prototype estimation preserves217
+useful within-class structure and improves unseen-center218
+recognition beyond matched ERM, cosine, and centroid219
+baselines. The reviewed work motivates this investiga-220
+tion but does not establish that the exact proposed mecha-221
+nism is novel; a broader comparison with recent prototype-222
+based domain-generalization methods remains necessary.223
+Evidence must distinguish the effects of weighting, pro-224
+totype count, and encoder adaptation, and include cases225
+where the method fails. Results on PolypGen alone would226
+support conclusions about the evaluated endoscopy setting,227
+rather than universal robustness across medical modalities228
+or readiness for clinical deployment.229
+3. Methodology230
+3.1. Setting and Design Rationale231
+We formulate the proposed method ascenter-balanced232
+multi-prototype classification(CBMP). The training set233
+contains tuples(x i, yi, si, gi), wheres i denotes the source234
+center andg i identifies a patient or video group. The target235
+center is excluded from feature fitting, prototype construc-236
+tion, and hyperparameter selection. All centers share a fixed237
+label vocabulary; every evaluated class must occur in the238
+source training set. For PolypGen classification, labels indi-239
+cate polyp presence, subject to an audited image-label man-240
+ifest rather than assumptions based solely on folder names.241
+The core experiment freezes a pretrained encoderf θ and242
+learns only class prototypes. This choice separates proto-243
+type construction from representation adaptation. CBMP244
+changes the influence of centers in class-conditional clus-245
+tering and represents each class with several reference di-246
+rections. It imposes no explicit domain-invariance loss and247
+makes no assumption that center identity fully explains vi-248
+sual variation. Whether its weighting improves transfer is249
+tested against identically encoded baselines.250
+Figure 1 summarizes the system and its experimental251
+data boundaries. The same outer center split and encoder252
+features are used for CBMP and its controls. Inner source-253
+center validation selects the configuration before the outer254
+source data are used to construct the final prototype bank.255
+Target images enter only the fixed inference path.256
+3.2. Embeddings and Sampling Units257
+We extract normalized embeddingsz i =z(x i)using the258
+checkpoint’s prescribed image preprocessing, in evaluation259
+mode and without stochastic augmentation. Numerically260
+zero embeddings are flagged as invalid rather than normal-261
+ized. Preprocessing, checkpoint version, and feature extrac-262
+tion settings are fixed across methods. Any fitted transfor-263
+mation is estimated on source training data only.264
+Repeated frames should not determine a center’s influ-265
+ence merely through sequence length. For classc, letG s,c 266
+be the groups containing that class at centers, letG s,c =267
+|Gs,c|, and letm g,c count class-ctraining images in group268
+g. ForI c ={i:y i =c}, define269
+ai = G−β
+si,c
+mgi,c
+, w i = ai∑︁
+j∈Ic aj
+,(3)270
+whereβ∈[0,1]controls center balancing. Each group re-271
+ceives equal total weight within its center and class. A cen-272
+ter’s total unnormalized class weight isG1−β
+s,c :β= 0retains273
+3
+
+=== PAGE 4 ===
+CVPR
+#*****
+CVPR
+#*****
+CVPR 2027 Submission #*****. CONFIDENTIAL REVIEW COPY . DO NOT DISTRIBUTE.
+Source centers
+Labeled images
+Center and group IDs
+Source-only validation
+SelectK,β, andτ
+Held-out target center
+Excluded from fitting
+and model selection
+Frozen encoder
+Prescribed preprocessing
+Normalized embeddingsz i
+Group/center weights
+wi ∝G −β
+si,c/mgi,c
+Source training data only
+Target encoding
+Same frozen encoder
+No target adaptation
+Spherical clustering
+Weighted class-wise updates
+Training-objective restarts
+Stored prototype bank
+{pc,k}and fixed settings
+Built from outer sources
+Prediction
+hc(x) = max k z(x)⊤pc,k
+Source-selected temperature
+Matched controls and ablations
+Same outer splits and encoder
+Isolate prototype count and weighting
+Independent evaluation
+Per-center / worst-center metrics
+Group-level uncertainty
+Blue: data/encoding Orange: source-only selection/weighting
+Teal: prototype construction Purple dashed: target evaluation
+Figure 1. CBMP system and evaluation boundaries.
+group-count weighting, whereasβ= 1equalizes the avail-274
+able centers. Absent center-class combinations contribute275
+no samples. Patient groups take precedence over sequence276
+groups when available; the grouping rule and missing iden-277
+tifiers are documented. This weighting reduces frame-count278
+dominance but does not make correlated observations statis-279
+tically independent.280
+3.3. Weighted Spherical Prototype Construction281
+Building on sphericalk-means [4], for each classcwe282
+constructK c unit-norm prototypesp c,k by minimizing the283
+weighted spherical clustering objective284
+Jc =
+∑︂
+i∈Ic
+wi min
+1≤k≤Kc
+(︁
+1−z ⊤
+i pc,k
+)︁
+,∥p c,k∥2 = 1.(4)285
+Given prototypes, each embedding is assigned to the largest286
+cosine similarity, with ties resolved by prototype index. For287
+assigned setA c,k, the update is288
+vc,k =
+∑︂
+i∈Ac,k
+wizi, p c,k = vc,k
+∥vc,k∥2
+.(5)289
+This update minimizes the fixed-assignment objective290
+wheneverv c,k is nonzero. It does not guarantee a globally291
+optimal clustering or target-domain robustness.292
+Initialization selects distinct training embeddings with-293
+out replacement using probabilities proportional tow i. We294
+use five restarts per class and retain the solution with the295
+smallest training objective. Empty clusters or numerically296
+zero update vectors are reinitialized from the training em-297
+bedding with the largest weighted residual to its nearest298
+valid prototype, avoiding duplicate seeds where possible.299
+Iteration stops when assignments are unchanged or after300
+100 updates. We chooseK c = min(K,|I c|, ∑︁
+s Gs,c)and301
+record the realized prototype count. A class with fewer than302
+Kc distinct embedding directions uses fewer prototypes.303
+These rules prevent unsupported or undefined prototype up-304
+dates; they do not substitute for adequate class coverage.305
+4
+
+=== PAGE 5 ===
+CVPR
+#*****
+CVPR
+#*****
+CVPR 2027 Submission #*****. CONFIDENTIAL REVIEW COPY . DO NOT DISTRIBUTE.
+3.4. Prediction and Calibration306
+For an unseen image, the class score is the strongest match307
+among its prototypes:308
+hc(x) = max
+1≤k≤Kc
+z(x)⊤pc,k,ˆy(x) = argmax
+c
+hc(x).
+(6)309
+This decision rule lets different prototypes support differ-310
+ent appearances without averaging them into a single direc-311
+tion. Prototype count can also increase accidental matches,312
+motivating a matched multiple-prototype baseline. When313
+K= 1andβ= 0, the method reduces to a group-weighted314
+normalized class centroid; whenβ= 1, it equalizes avail-315
+able centers before normalization.316
+For probabilistic evaluation, scores are converted to a317
+softmax with temperatureτ >0, as in Eq. 1, substituting318
+hc(x)for the single-prototype similarity. Following tem-319
+perature scaling [7], temperature is selected using source320
+validation negative log-likelihood; it does not change the321
+argmax decision. These scores are not assumed to remain322
+calibrated after a center shift. Any operating threshold is323
+also fixed from source validation data. Inference uses only324
+the image, encoder, and prototypes, with no target-center325
+identifier or batch adaptation.326
+3.5. Source-Only Selection and Controlled Evalua-327
+tion328
+For each outer held-out center, we select(K, β)through329
+inner leave-one-source-center-out validation, using the can-330
+didate gridK∈ {1,2,4,8}andβ∈ {0,0.5,1}. The se-331
+lection score is mean balanced accuracy across the inner332
+validation centers. Ties favor smallerK, then smallerβ.333
+Temperature is chosen from{0.02,0.05,0.1,0.2,0.5,1}us-334
+ing the mean inner-validation negative log-likelihood for the335
+selected configuration. Inner folds must retain all classes336
+in training; unsupported folds are reported and excluded337
+by a rule fixed before evaluation. If no valid center-level338
+inner fold exists, a documented group-disjoint source val-339
+idation split is used. Once settings are fixed, prototypes340
+are reconstructed from all outer source training data. Outer341
+target scores never select settings, restarts, or checkpoints,342
+consistent with the model-selection concerns raised by Do-343
+mainBed [6].344
+Controls include matched linear and cosine classi-345
+fiers, a single-centroid classifier, and unbalanced multiple-346
+prototype clustering. A factorial comparison ofK= 1347
+versusK >1andβ= 0versusβ >0separates mul-348
+tiplicity from center weighting. Group weighting is held349
+constant in these comparisons; a separate image-weighted350
+control measures its effect. Trainable classifiers receive the351
+same source validation protocol and a disclosed tuning bud-352
+get. Encoder adaptation, if evaluated, is a separate exper-353
+iment with matched optimization and feature recomputa-354
+tion, rather than an unreported change to the frozen-encoder355
+method.356
+We report balanced accuracy, macro F1, AUROC where357
+defined, and per-center performance, with the worst-center358
+score computed across the outer evaluation folds. Group-359
+level bootstrap intervals resample the highest available in-360
+dependent unit; repeated optimization seeds are reported361
+separately. Evaluation manifests, class coverage, seeds, se-362
+lected settings, and predictions are saved so each result can363
+be reconstructed. Center balancing cannot compensate for364
+missing disease appearances, erroneous labels, or an en-365
+coder insensitive to the relevant visual cues.366
+Computational cost.With cachedd-dimensional embed-367
+dings,Rrestarts andTclustering updates require approxi-368
+matelyO(RT N Kd)operations forNtraining images, ex-369
+cluding encoder feature extraction. Prototype storage is370
+O(d ∑︁
+c Kc), and prediction costsO(d ∑︁
+c Kc)per image371
+after encoding. The frozen-encoder construction uses no372
+gradient updates. The proposed contribution must therefore373
+be assessed through its weighting rule and independently374
+measured transfer behavior, rather than architectural scale375
+or a renamed cosine classifier.376
+References377
+[1] Sharib Ali, Debesh Jha, Noha Ghatwary, Stefano Realdon,378
+Renato Cannizzaro, Osama E. Salem, Dominique Lamar-379
+que, Christian Daul, Michael A. Riegler, Kim V . Anonsen,380
+Andreas Petlund, P ˚al Halvorsen, Jens Rittscher, Thomas381
+de Lange, and James E. East. A multi-centre polyp de-382
+tection and segmentation dataset for generalisability assess-383
+ment.Scientific Data, 10(1):75, 2023. 1, 3384
+[2] Chaofan Chen, Oscar Li, Daniel Tao, Alina Barnett, Cynthia385
+Rudin, and Jonathan K. Su. This looks like that: Deep learn-386
+ing for interpretable image recognition. InAdvances in Neu-387
+ral Information Processing Systems. Curran Associates, Inc.,388
+2019. Preprint version DOI: 10.48550/arXiv.1806.10574. 1,389
+2390
+[3] Wei-Yu Chen, Yen-Cheng Liu, Zsolt Kira, Yu-Chiang Frank391
+Wang, and Jia-Bin Huang. A closer look at few-392
+shot classification. InInternational Conference on393
+Learning Representations, 2019. Preprint version DOI:394
+10.48550/arXiv.1904.04232. 1, 2395
+[4] Inderjit S. Dhillon and Dharmendra S. Modha. Concept de-396
+compositions for large sparse text data using clustering.Ma-397
+chine Learning, 42(1–2):143–175, 2001. 3, 4398
+[5] Qing En and Yuhong Guo. Unsupervised domain adaptation399
+for medical image segmentation with dynamic prototype-400
+based contrastive learning. InProceedings of the fifth Con-401
+ference on Health, Inference, and Learning, pages 312–325.402
+PMLR, 2024. 2, 3403
+[6] Ishaan Gulrajani and David Lopez-Paz. In search of lost404
+domain generalization. InInternational Conference on405
+Learning Representations, 2021. Preprint version DOI:406
+10.48550/arXiv.2007.01434. 1, 2, 5407
+[7] Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q. Weinberger.408
+On calibration of modern neural networks. InProceedings409
+5
+
+=== PAGE 6 ===
+CVPR
+#*****
+CVPR
+#*****
+CVPR 2027 Submission #*****. CONFIDENTIAL REVIEW COPY . DO NOT DISTRIBUTE.
+of the 34th International Conference on Machine Learn-410
+ing, pages 1321–1330. PMLR, 2017. Preprint version DOI:411
+10.48550/arXiv.1706.04599. 3, 5412
+[8] Prannay Khosla, Piotr Teterwak, Chen Wang, Aaron Sarna,413
+Yonglong Tian, Phillip Isola, Aaron Maschinot, Ce Liu,414
+and Dilip Krishnan. Supervised contrastive learning. In415
+Advances in Neural Information Processing Systems, pages416
+18661–18673. Curran Associates, Inc., 2020. Preprint ver-417
+sion DOI: 10.48550/arXiv.2004.11362. 2418
+[9] Maxime Oquab, Timoth ´ee Darcet, Th ´eo Moutakanni, Huy419
+V o, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez,420
+Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, Mah-421
+moud Assran, Nicolas Ballas, Wojciech Galuba, Russell422
+Howes, Po-Yao Huang, Shang-Wen Li, Ishan Misra, Michael423
+Rabbat, Vasu Sharma, Gabriel Synnaeve, Hu Xu, Herv ´e424
+J´egou, Julien Mairal, Patrick Labatut, Armand Joulin,425
+and Piotr Bojanowski. DINOv2: Learning robust vi-426
+sual features without supervision.Transactions on Ma-427
+chine Learning Research, 2024. Preprint version DOI:428
+10.48550/arXiv.2304.07193. 1, 2429
+[10] Maithra Raghu, Chiyuan Zhang, Jon Kleinberg, and Samy430
+Bengio. Transfusion: Understanding transfer learning for431
+medical imaging. InAdvances in Neural Information Pro-432
+cessing Systems. Curran Associates, Inc., 2019. 1433
+[11] Jake Snell, Kevin Swersky, and Richard Zemel. Prototypical434
+networks for few-shot learning. InAdvances in Neural Infor-435
+mation Processing Systems. Curran Associates, Inc., 2017.436
+Preprint version DOI: 10.48550/arXiv.1703.05175. 1, 2437
+[12] Sudhir Varma and Richard Simon. Bias in error estima-438
+tion when using cross-validation for model selection.BMC439
+Bioinformatics, 7:91, 2006. 1440
+[13] John R. Zech, Marcus A. Badgeley, Manway Liu, An-441
+thony B. Costa, Joseph J. Titano, and Eric Karl Oer-442
+mann. Variable generalization performance of a deep learn-443
+ing model to detect pneumonia in chest radiographs: A444
+cross-sectional study.PLOS Medicine, 15(11):e1002683,445
+2018. 1, 2446
+[14] Han Zhao, Remi Tachet des Combes, Kun Zhang, and Ge-447
+offrey J. Gordon. On learning invariant representations for448
+domain adaptation. InProceedings of the 36th International449
+Conference on Machine Learning, pages 7523–7532. PMLR,450
+2019. Preprint version DOI: 10.48550/arXiv.1901.09453. 1,451
+2452
+6
